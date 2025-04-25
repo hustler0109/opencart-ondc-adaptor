@@ -7,7 +7,7 @@ const { getCallbackUri } = require("../utils/registryLookup");
 const { signPayload } = require("../utils/ondcUtils");
 
 // --- Configuration ---
-const BASE_URL = process.env.OPENCART_BASE_URL || "https://yourdomain.com/index.php";
+const BASE_URL = process.env.OPENCART_BASE_URL || "http://localhost/opencart/index.php";
 const API_USERNAME = process.env.OPENCART_API_USERNAME;
 const API_KEY = process.env.OPENCART_API_KEY;
 const ORDER_HISTORY_ROUTE = "api/order/history";

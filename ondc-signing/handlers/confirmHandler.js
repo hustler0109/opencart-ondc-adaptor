@@ -43,7 +43,7 @@ const confirm = async (req, res) => {
     // -------------------------
     // STEP 1: Login to OpenCart
     // -------------------------
-    const loginResponse = await axios.post('https://yourdomain.com/index.php?route=api/login', {
+    const loginResponse = await axios.post('http://localhost/opencart/index.php?route=api/login', {
       username: 'your_api_user',
       key: 'your_api_key',
     });
@@ -73,7 +73,7 @@ const confirm = async (req, res) => {
     // STEP 3: Confirm Order in OC API
     // -------------------------------
     const orderResponse = await axios.post(
-      'https://yourdomain.com/index.php?route=api/order/add',
+      'http://localhost/opencart/index.php?route=api/order/add',
       openCartPayload,
       { timeout: 5000 }
     );

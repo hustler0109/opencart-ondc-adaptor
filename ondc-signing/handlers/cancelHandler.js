@@ -24,7 +24,7 @@ async function updateOrderStatusInOpenCart(orderId, statusId, reasonCode, messag
 
   try {
     console.log(`Background Task: Calling OpenCart API for Order ID: ${orderId}, Status ID: ${statusId}`);
-    const response = await axios.post("https://your-opencart-site.com/api/update-order-status", {
+    const response = await axios.post("http://localhost/opencart/api/update-order-status", {
       order_id: orderId,
       order_status_id: statusId,
       comment: `ONDC Cancel Request. Reason: ${reasonCode}. Message ID: ${messageId}`

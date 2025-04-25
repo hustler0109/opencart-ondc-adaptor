@@ -15,7 +15,7 @@ axiosRetry(axios, {
 });
 
 // --- OpenCart Configuration ---
-const OPENCART_BASE_URL = process.env.OPENCART_BASE_URL || "https://yourdomain.com/index.php";
+const OPENCART_BASE_URL = process.env.OPENCART_BASE_URL || "http://localhost/opencart/index.php";
 const OPENCART_API_USER = process.env.OPENCART_API_USERNAME;
 const OPENCART_API_KEY = process.env.OPENCART_API_KEY;
 const DEFAULT_ORDER_STATUS_ID = parseInt(process.env.OPENCART_CONFIRMED_STATUS_ID || '2');
