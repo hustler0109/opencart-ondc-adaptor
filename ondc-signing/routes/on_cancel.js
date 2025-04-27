@@ -1,15 +1,11 @@
+// /routes/onCancelRouter.js
+
 import express from 'express';
+import onCancelMiddleware from '../middlewares/onCancelMiddleware.js'; 
+import handleOnCancel from '../handlers/onCancelHandler.js';
 
-import { onCancelMiddleware } from '../middlewares/onCancelValidationMiddleware.js'; 
+const onCancelRouter = express.Router();
 
-import { handleOnCancel } from '../handlers/onCancelHandler.js';
+onCancelRouter.post('/on_cancel', onCancelMiddleware, handleOnCancel);
 
-const router = express.Router();
-
-router.post(
-  '/on_cancel',
-  onCancelMiddleware,
-  handleOnCancel
-);
-
-export { router as onCancelRouter };
+export default onCancelRouter;

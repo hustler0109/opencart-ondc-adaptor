@@ -1,23 +1,29 @@
-// middleware/onConfirmMiddleware.js
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+import logger from "../utils/logger.js";
+import { createNackResponse } from "../utils/ondcUtils.js";
+import onConfirmSchema from "../utils/schemas/on_confirm_schema.json" assert { type: "json" }; // ✅ Correct static JSON import
 
-const Ajv = require("ajv");
-const addFormats = require("ajv-formats");
-const logger = require("../utils/logger");
-const { createNackResponse } = require("../utils/ondcUtils");
-
+// Setup AJV
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
+// Compile schema immediately
 let validateSchema;
 try {
-  const schema = require("../schema/on_confirm_schema.json"); // ✅ Replace with correct path
-  validateSchema = ajv.compile(schema);
+  validateSchema = ajv.compile(onConfirmSchema);
   logger.info({ message: "ONDC /on_confirm schema compiled successfully." });
 } catch (err) {
-  logger.error({ message: "Failed to load /on_confirm schema.", error: err.message });
+  logger.error({ message: "Failed to compile /on_confirm schema.", error: err.message });
   validateSchema = null;
 }
 
+// --- Middleware: Authentication Stub (replace with real signature verification later)
+const authenticateSnpRequest = (req, res, next) => {
+  next();
+};
+
+// --- Middleware: Validate /on_confirm Schema
 const validateOnConfirmSchema = (req, res, next) => {
   const transactionId = req.body?.context?.transaction_id;
   const messageId = req.body?.context?.message_id;
@@ -52,4 +58,6 @@ const validateOnConfirmSchema = (req, res, next) => {
   next();
 };
 
-module.exports = validateOnConfirmSchema;
+// --- Exports
+export default authenticateSnpRequest;
+export { validateOnConfirmSchema };

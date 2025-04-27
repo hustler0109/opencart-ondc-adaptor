@@ -1,11 +1,11 @@
 // handlers/onConfirmHandler.js
 
-const axios = require("axios");
-const _ = require("lodash");
-const logger = require("../utils/logger");
-const { sendAck } = require("../utils/sendResponse");
-const { getValue, setValue } = require("../shared/cache");
-const axiosRetry = require("axios-retry");
+import axios from "axios";
+import _ from "lodash";
+import logger from "../utils/logger.js";
+import { sendAck } from "../utils/sendResponse.js";
+import { getValue, setValue } from "../utils/cache.js";
+import axiosRetry from "axios-retry";
 axiosRetry(axios, {
   retries: 3,
   retryDelay: axiosRetry.exponentialDelay,
@@ -41,7 +41,7 @@ const loginToOpenCart = async () => {
     }, { timeout: 5000 });
 
     if (response.data?.api_token) {
-      await setValue(API_TOKEN_CACHE_KEY, response.data.api_token, { ttl: API_TOKEN_TTL });
+      await setValue(API_TOKEN_CACHE_KEY, response.data.api_token, API_TOKEN_TTL);
       return response.data.api_token;
     } else {
       logger.error({ message: "OpenCart login failed", responseData: response.data });
@@ -100,7 +100,7 @@ const onConfirmHandler = async (req, res) => {
   const messageId = _.get(body, "context.message_id");
   const orderId = _.get(body, "message.order.id");
   const orderState = _.get(body, "message.order.state", "Accepted");
-  const ackResponse = sendAck();
+  const ackResponse = sendAck({ transaction_id: transactionId, message_id: messageId }); // Include context
 
   const cacheKey = `on_confirm_ack:${transactionId}:${messageId}`;
   try {
@@ -122,7 +122,7 @@ const onConfirmHandler = async (req, res) => {
     const success = await updateOpenCartOrderStatus(apiToken, orderId, orderState, transactionId);
     if (success) {
       try {
-        await setValue(cacheKey, ackResponse);
+        await setValue(cacheKey, ackResponse, 60); // Cache for 60 seconds
         logger.info({ message: "Cached ACK after successful processing", transactionId });
       } catch (err) {
         logger.error({ message: "Failed to cache ACK", transactionId, error: err.message });
@@ -131,4 +131,4 @@ const onConfirmHandler = async (req, res) => {
   });
 };
 
-module.exports = onConfirmHandler;
+export default onConfirmHandler;

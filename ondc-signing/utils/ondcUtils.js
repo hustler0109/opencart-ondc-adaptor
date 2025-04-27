@@ -1,10 +1,9 @@
-const Ajv = require('ajv');
-const crypto = require('crypto');
-const { getSubscriberPublicKey } = require('../services/registryService'); // You need to implement this service
+import Ajv from "ajv";
+import crypto from "crypto";
 
 const ajv = new Ajv();
 
-// Basic schema for context validation (expand as needed)
+// Basic schema
 const confirmSchema = {
   type: 'object',
   properties: {
@@ -26,9 +25,9 @@ const confirmSchema = {
   required: ['context', 'message']
 };
 
-const validateConfirmBody = ajv.compile(confirmSchema);
+export const validateConfirmBody = ajv.compile(confirmSchema);
 
-function parseAuthorizationHeader(authHeader) {
+export function parseAuthorizationHeader(authHeader) {
   if (!authHeader.startsWith('Signature ')) return null;
 
   const params = {};
@@ -42,12 +41,12 @@ function parseAuthorizationHeader(authHeader) {
   return params;
 }
 
-function isTimestampValid(created, expires, skew = 300) {
+export function isTimestampValid(created, expires, skew = 300) {
   const now = Math.floor(Date.now() / 1000);
   return (created <= now + skew) && (expires >= now - skew);
 }
 
-function createSignatureBaseString(params, headersList, rawBody) {
+export function createSignatureBaseString(params, headersList, rawBody) {
   const headers = headersList.split(' ');
   let signatureString = '';
 
@@ -61,7 +60,7 @@ function createSignatureBaseString(params, headersList, rawBody) {
         break;
       case 'digest':
         const hash = crypto.createHash('sha256').update(rawBody).digest('base64');
-        signatureString += `digest: BLAKE-512=${hash}\n`; // Use SHA-256 or as per ONDC requirement
+        signatureString += `digest: BLAKE-512=${hash}\n`;
         break;
       default:
         throw new Error(`Unsupported signature header: ${header}`);
@@ -71,7 +70,10 @@ function createSignatureBaseString(params, headersList, rawBody) {
   return signatureString.trim();
 }
 
-async function verifyOndcSignature(req, rawBodyBuffer) {
+// Hardcoded Public Key - REPLACE WITH THE ACTUAL PUBLIC KEY FOR TESTING ONLY
+const HARDCODED_PUBLIC_KEY = "PASTE_THE_SENDER'S_PUBLIC_KEY_HERE";
+
+export async function verifyOndcSignature(req, rawBodyBuffer) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     throw new Error('Missing Authorization header');
@@ -104,9 +106,11 @@ async function verifyOndcSignature(req, rawBodyBuffer) {
     throw new Error('Invalid keyId format in Authorization header');
   }
 
-  const publicKey = await getSubscriberPublicKey(subscriber_id, unique_key_id);
+  // BYPASSING THE REGISTRY CALL - USING HARDCODED KEY FOR TESTING ONLY
+  const publicKey = HARDCODED_PUBLIC_KEY;
+
   if (!publicKey) {
-    throw new Error(`Public key not found for ${keyId}`);
+    throw new Error(`Hardcoded public key not set`);
   }
 
   const signatureBaseString = createSignatureBaseString(signatureParams, headers, rawBodyBuffer);
@@ -126,11 +130,64 @@ async function verifyOndcSignature(req, rawBodyBuffer) {
     throw new Error('Signature verification failed');
   }
 
-  // If body is valid and signature is verified, return subscriber_id
   return subscriber_id;
 }
 
-module.exports = {
-  verifyOndcSignature,
-  validateConfirmBody
+export async function verifySignature(signature, created, expires, rawBodyBuffer, publicKey) {
+  try {
+    const signatureBaseString = createSignatureBaseString(
+      { created, expires },
+      '(created) (expires) digest', // Assuming these are the headers used for signing
+      rawBodyBuffer
+    );
+
+    const isVerified = crypto.verify(
+      null, // Auto-detect algorithm? You might need to specify 'sha256' or similar
+      Buffer.from(signatureBaseString),
+      publicKey,
+      Buffer.from(signature, 'base64')
+    );
+
+    return isVerified;
+  } catch (error) {
+    console.error('Error during signature verification:', error);
+    return false;
+  }
+}
+
+export function parseKeyId(keyId) {
+  const parts = keyId.split('|');
+  if (parts.length !== 2) {
+    return { subscriberId: null, uniqueKeyId: null };
+  }
+  return { subscriberId: parts[0], uniqueKeyId: parts[1] };
+}
+export function validateTimestamps(created, expires, skew = 300) {
+  const now = Math.floor(Date.now() / 1000);
+  return (created <= now + skew) && (expires >= now - skew);
+}
+
+// --- ADDED FUNCTION: createNackResponse ---
+export const createNackResponse = (error) => {
+  return {
+    context: {
+      // You might need to populate context details based on the original request
+    },
+    error: {
+      type: error.type || 'APPLICATION-ERROR',
+      code: error.code || '50000',
+      message: error.message || 'Generic error',
+    },
+  };
 };
+
+// You might need to add the implementation for lookupRegistryPublicKey here
+// OR import it from registryService.js as discussed.
+// If you keep it here, ensure it's using ESM syntax and exported.
+// Example (you will need to implement the actual logic):
+// export async function lookupRegistryPublicKey(subscriberId, uniqueKeyId) {
+//   // Implementation to fetch public key from the registry
+//   // This might involve network calls using 'fetch' or 'axios'
+//   console.log('Placeholder for lookupRegistryPublicKey');
+//   return null; // Replace with actual fetched public key or null if not found
+// }

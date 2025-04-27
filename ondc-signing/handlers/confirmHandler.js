@@ -1,15 +1,12 @@
-const _ = require('lodash');
-const axios = require('axios');
-const { logger } = require('../shared/logger');
-const { validateSchema } = require('../utils/schemaValidator');
-const { getValue, setValue } = require('../shared/cache');
-const { sendAck, sendNack } = require('../utils/sendResponse');
-const registry = require('../utils/registryLookup');
-const { forwardRequest } = require('../utils/lookupUtils');
-const ondcUtils = require('../utils/ondcUtils');
-const Signer = require('../utils/signature');
+import _ from 'lodash';
+import axios from 'axios';
+import logger from '../utils/logger.js'; // Assuming you have a loggerimport { getValue, setValue } from '../utils/cache.js'; // Assuming this is ESM
+import { sendAck, sendNack } from '../utils/sendResponse.js'; // Assuming this is ESM
+import registry from '../utils/registryLookup.js'; // <-- Import here
+import { forwardRequest } from '../utils/lookupUtils.js'; // Assuming this is ESM
+import Signer from '../utils/signature.js'; // Assuming this is ESM
 
-const confirm = async (req, res) => {
+const confirmHandler = async (req, res) => {
   const { body } = req;
   const messageId = _.get(body, 'context.message_id');
   const transactionId = _.get(body, 'context.transaction_id');
@@ -32,13 +29,13 @@ const confirm = async (req, res) => {
       return res.status(400).json(sendNack('Schema validation failed'));
     }
 
-    // Registry lookup
-    const verifiedBapId = await registry.lookupGatewaySubscriber(bapId);
-    const bapCallbackUri = await ondcUtils.lookupRegistryCallbackUri(verifiedBapId);
-    if (!bapCallbackUri) {
-      logger.error({ message: 'BAP callback URI not found', transactionId, messageId });
-      return res.status(500).json(sendNack('BAP callback URI not found'));
-    }
+     // Registry lookup for BAP details
+     const bapSubscriber = await registry.lookupGatewaySubscriber(bapId, 'BAP'); // <-- Use lookupGatewaySubscriber
+     const bapCallbackUri = registry.lookupRegistryCallbackUri(bapSubscriber); // <-- Use lookupRegistryCallbackUri
+     if (!bapCallbackUri) {
+       logger.error({ message: 'BAP callback URI not found', transactionId, messageId });
+       return res.status(500).json(sendNack('BAP callback URI not found'));
+     }
 
     // -------------------------
     // STEP 1: Login to OpenCart
@@ -89,25 +86,29 @@ const confirm = async (req, res) => {
     const onConfirmPayload = ondcUtils.createOnConfirmPayload(body);
     const signature = Signer.signPayload(onConfirmPayload);
 
-    const onConfirmUrl = `${bapCallbackUri.replace(/\/$/, '')}/on_confirm`;
+    const onConfirmUrl = `${bapCallbackUri?.replace(/\/$/, '')}/on_confirm`;
     logger.info({ message: 'Sending /on_confirm to BAP', url: onConfirmUrl });
 
-    const bppResponse = await axios.post(onConfirmUrl, onConfirmPayload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Signature keyId="your-key-id",algorithm="rsa-sha256",headers="(created) (expires) digest",signature="${signature}"`,
-      },
-      timeout: 5000,
-    });
+    try {
+      const bppResponse = await axios.post(onConfirmUrl, onConfirmPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Signature keyId="your-key-id",algorithm="rsa-sha256",headers="(created) (expires) digest",signature="${signature}"`,
+        },
+        timeout: 5000,
+      });
 
-    if (bppResponse?.data?.message?.ack?.status === 'ACK') {
-      const ackResponse = sendAck();
-      await setValue(cacheKey, ackResponse);
-      logger.info({ message: '/on_confirm ACK received from BAP', transactionId, messageId });
-      return res.status(200).json(ackResponse);
-    } else {
-      logger.error({ message: 'Received NACK or unexpected response from BAP', data: bppResponse.data });
-      return res.status(500).json(sendNack('BAP returned NACK or unknown error'));
+      if (bppResponse?.data?.message?.ack?.status === 'ACK') {
+        const ackResponse = sendAck();
+        await setValue(cacheKey, ackResponse, 60);        logger.info({ message: '/on_confirm ACK received from BAP', transactionId, messageId });
+        return res.status(200).json(ackResponse);
+      } else {
+        logger.error({ message: 'Received NACK or unexpected response from BAP', data: bppResponse.data });
+        return res.status(500).json(sendNack('BAP returned NACK or unknown error'));
+      }
+    } catch (bppError) {
+      logger.error({ message: 'Error sending /on_confirm to BAP', error: bppError.isAxiosError ? bppError.toJSON?.() : bppError.message, url: onConfirmUrl });
+      return res.status(500).json(sendNack('Error sending /on_confirm to BAP'));
     }
 
   } catch (error) {
@@ -119,4 +120,4 @@ const confirm = async (req, res) => {
   }
 };
 
-module.exports = confirm;
+export default confirmHandler;

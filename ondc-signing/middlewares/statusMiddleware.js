@@ -1,35 +1,31 @@
-const Ajv = require("ajv");
-const addFormats = require("ajv-formats");
-const ondcUtils = require("../utils/ondcUtils");
-const logger = require("../utils/logger");
-const { createNackResponse } = require("../utils/ondcUtils");
+// /middlewares/statusMiddleware.js
 
-// --- Load and Compile ONDC /status Schema ---
+import Ajv from "ajv";
+import addFormats from "ajv-formats";
+import * as ondcUtils from "../utils/ondcUtils.js";
+import logger from "../utils/logger.js";
+import { createNackResponse } from "../utils/ondcUtils.js";
+
 const ajv = new Ajv({ allErrors: true });
 addFormats(ajv);
 
 let validateStatusSchema;
 try {
-  const schema = require("../schema/status.json"); // <-- Replace with your actual schema path
-  validateStatusSchema = ajv.compile(schema);
+  const schema = await import("../schema/status.json", { assert: { type: "json" } });
+  validateStatusSchema = ajv.compile(schema.default);
   logger.info({ message: "Loaded and compiled /status schema successfully" });
 } catch (err) {
   logger.error({ message: "Failed to load ONDC /status schema", error: err.message });
   validateStatusSchema = null;
 }
 
-/**
- * Middleware: Validates schema and signature for /status.
- */
 const processStatusRequest = async (req, res, next) => {
   const context = req.body?.context || {};
   const transactionId = context.transaction_id;
   const messageId = context.message_id;
-  const action = context.action;
 
   logger.info({ message: "Received request on /status endpoint", transactionId, messageId });
 
-  // --- Schema Validation ---
   if (!validateStatusSchema) {
     logger.error({ message: "Schema not available at runtime", transactionId });
     return res.status(500).json(createNackResponse({
@@ -50,7 +46,6 @@ const processStatusRequest = async (req, res, next) => {
     }));
   }
 
-  // --- Signature Validation ---
   const authHeader = req.headers["authorization"];
   if (!authHeader) {
     logger.warn({ message: "Missing authorization header", transactionId });
@@ -102,7 +97,7 @@ const processStatusRequest = async (req, res, next) => {
       parsed.signature,
       parsed.created,
       parsed.expires,
-      req.rawBodyBuffer, // Ensure raw buffer is set in app.js middleware
+      req.rawBodyBuffer,
       publicKey
     );
 
@@ -114,7 +109,6 @@ const processStatusRequest = async (req, res, next) => {
       }));
     }
 
-    // Set BAP ID for downstream use
     req.verified_bap_id = subscriberId;
     logger.info({ message: "Signature verified successfully", subscriberId, transactionId });
 
@@ -127,7 +121,7 @@ const processStatusRequest = async (req, res, next) => {
     }));
   }
 
-  next(); // All checks passed, proceed to handler
+  next();
 };
 
-module.exports = { processStatusRequest };
+export { processStatusRequest };

@@ -1,6 +1,8 @@
-const { validateSchema } = require("../utils/schemaValidator");
-const { verifyOndcSignature } = require("../utils/ondcUtils");
-const logger = require("../utils/logger");
+// /middlewares/onStatusMiddleware.js
+
+import { validateSchema } from "../utils/schemaValidator.js";
+import { verifyOndcSignature } from "../utils/ondcUtils.js";
+import logger from "../utils/logger.js";
 
 /**
  * Middleware to authenticate and validate /on_status requests.
@@ -43,4 +45,4 @@ const processOnStatusRequest = async (req, res, next) => {
   next();
 };
 
-module.exports = { processOnStatusRequest };
+export { processOnStatusRequest };

@@ -1,134 +1,168 @@
+// /handlers/statusHandler.js
+
 import axios from "axios";
+import _ from "lodash";
+import logger from "../utils/logger.js";
+import { sendAck } from "../utils/sendResponse.js";
+import { getValue, setValue } from "../shared/cache.js";
+import { getCallbackUri } from "../utils/registryLookup.js";
+import { signPayload } from "../utils/ondcUtils.js";
 
-export default async function selectHandler(req, res) {
-    console.log("select handler executed");
+// --- Configuration ---
+const BASE_URL = process.env.OPENCART_BASE_URL || "http://localhost/opencart/index.php";
+const API_USERNAME = process.env.OPENCART_API_USERNAME;
+const API_KEY = process.env.OPENCART_API_KEY;
+const ORDER_HISTORY_ROUTE = "api/order/history";
+const STATUS_CACHE_TTL = 300; // 5 mins
+const TOKEN_CACHE_KEY = "opencart_api_token";
 
-    // Perform the necessary processing here
-    const responseData = {
-        "context":{
-           "domain":"ONDC:RET10",
-           "action":"search",
-           "country":"IND",
-           "city":"std:011",
-           "core_version":"1.2.0",
-           "bap_id":"buyer-app-preprod-v2.ondc.org",
-           "bap_uri":"https://buyer-app-preprod-v2.ondc.org/protocol/v1",
-           "transaction_id":"e9e02ef8-2987-4cf0-b115-4d5b44fb78ac",
-           "message_id":"adfec2a0-6c19-449e-bdcd-e9df6308040f",
-           "timestamp":"2024-01-12T11:40:01.960Z",
-           "ttl":"PT30S"
-        },
-        "message":{
-           "intent":{
-              "fulfillment":{
-                 "type":"Delivery"
-              },
-              "payment":{
-                 "@ondc/org/buyer_app_finder_fee_type":"percent",
-                 "@ondc/org/buyer_app_finder_fee_amount":"3"
-              }
-           }
-        }
-     };
+/**
+ * Authenticates and caches the OpenCart API token.
+ */
+const loginToOpenCart = async () => {
+  try {
+    const cachedToken = await getValue(TOKEN_CACHE_KEY);
+    if (cachedToken) {
+      logger.debug({ message: "Using cached OpenCart API token" });
+      return cachedToken;
+    }
 
-     try {
-      const { context } = req.body;
-      const isValidRequest = req.isValidRequest;
-      console.log('isValidRequest',isValidRequest);
-  
-      // 1. Basic request body validation (example)
-      if (!isValidRequest) {
-        // ❌ Case 1: Request failed middleware validation
-        console.warn("NACK: Request failed middleware validation");
-        return res.status(200).json({
-          response: {
-            context: {
-              ...context,
-              action: "on_select",
-              bpp_id: context?.bpp_id,
-              bpp_uri: context?.bpp_uri,
-            },
-            message: {
-              ack: {
-                status: "NACK",
-              },
-            },
-            error: {
-              type: "AUTH_ERROR",
-              code: "10002",
-              message: "Authentication failed or missing OpenCart API token/environment variables.",
-            },
-          },
-        });
-      } else if (
-        !context ||
-        !context.transaction_id ||
-        !context.message_id ||
-        !context.bap_id ||
-        !context.bap_uri
-      ) {
-        console.log("NACK: Missing mandatory context parameters");
-        return res.status(200).json({
-          response: {
-            context: {
-              ...context,
-              action: "on_select",
-              bpp_id: req.body?.context?.bpp_id,
-              bpp_uri: req.body?.context?.bpp_uri,
-            },
-            message: {
-              ack: {
-                status: "NACK",
-              },
-            },
-            error: {
-              type: "REQUEST_ERROR",
-              code: "10001",
-              message:
-                "Missing mandatory parameters in the /search request context.",
-            },
-          },
-        });
+    const response = await axios.post(`${BASE_URL}?route=api/login`, {
+      username: API_USERNAME,
+      key: API_KEY,
+    });
+
+    const token = response?.data?.api_token || response?.data?.token;
+    if (token) {
+      await setValue(TOKEN_CACHE_KEY, token, { ttl: STATUS_CACHE_TTL });
+      logger.info({ message: "Logged into OpenCart, token cached." });
+      return token;
+    } else {
+      logger.error({ message: "Login to OpenCart failed", responseData: response.data });
+      return null;
+    }
+  } catch (err) {
+    logger.error({
+      message: "OpenCart login failed",
+      error: err.isAxiosError ? err.toJSON?.() : err.message,
+    });
+    return null;
+  }
+};
+
+/**
+ * Fetches the latest order status from OpenCart.
+ */
+const getOrderStatus = async (orderId, apiToken, transactionId) => {
+  try {
+    const res = await axios.post(
+      `${BASE_URL}?route=${ORDER_HISTORY_ROUTE}&api_token=${apiToken}`,
+      { order_id: orderId },
+      { timeout: 5000 }
+    );
+
+    const histories = res?.data?.histories;
+    if (!Array.isArray(histories)) {
+      throw new Error("Unexpected OpenCart response format (histories missing)");
+    }
+
+    const lastStatus = _.last(histories)?.status || "Pending";
+    logger.info({ message: "Fetched order status from OpenCart", orderId, lastStatus, transactionId });
+
+    return lastStatus;
+  } catch (err) {
+    logger.error({
+      message: "Failed to fetch order status from OpenCart",
+      orderId,
+      transactionId,
+      error: err.message,
+    });
+    return null;
+  }
+};
+
+/**
+ * Maps OpenCart status text to ONDC order states.
+ */
+const mapToOndcStatus = (status) => {
+  const map = {
+    "Pending": "Created",
+    "Processing": "Accepted",
+    "Shipped": "In-Transit",
+    "Delivered": "Delivered",
+    "Cancelled": "Cancelled",
+    "Completed": "Completed",
+  };
+  return map[status] || "Created";
+};
+
+/**
+ * Main /status handler.
+ */
+const statusHandler = async (req, res) => {
+  const { body } = req;
+  const transactionId = _.get(body, "context.transaction_id");
+  const messageId = _.get(body, "context.message_id");
+  const bapId = _.get(body, "context.bap_id");
+  const orderId = _.get(body, "message.order_id");
+
+  res.status(200).json(sendAck()); // Send ACK immediately
+
+  setImmediate(async () => {
+    try {
+      logger.info({ message: "Handling ONDC /status callback", transactionId, messageId, orderId });
+
+      const token = await loginToOpenCart();
+      if (!token) return;
+
+      const currentStatus = await getOrderStatus(orderId, token, transactionId);
+      if (!currentStatus) return;
+
+      const mappedState = mapToOndcStatus(currentStatus);
+
+      const bapCallbackUri = await getCallbackUri(bapId);
+      if (!bapCallbackUri) {
+        logger.error({ message: "Failed to resolve BAP callback URI", bapId, transactionId });
+        return;
       }
-  
-      // 2. Add more validation checks as needed
-  
-      // If all initial checks pass, send an ACK
-      if (isValidRequest) {
-      console.log("ACK: Request seems valid, proceeding to handler");
-      res.status(200).json({
-        // res.write({
-        response: {
-          context: {
-            ...context,
-            action: "on_select",
-            bpp_id: req.body?.context?.bpp_id,
-            bpp_uri: req.body?.context?.bpp_uri,
-          },
-          message: {
-            ack: {
-              status: "ACK",
-            },
+
+      const onStatusPayload = {
+        context: {
+          ...body.context,
+          action: "on_status",
+          timestamp: new Date().toISOString(),
+        },
+        message: {
+          order: {
+            id: orderId,
+            state: mappedState,
+            fulfillments: [],
           },
         },
+      };
+
+      const signature = await signPayload(onStatusPayload);
+
+      await axios.post(`${bapCallbackUri}/on_status`, onStatusPayload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: signature,
+        },
+        timeout: 8000,
+      });
+
+      logger.info({ message: "/on_status successfully sent to BAP", transactionId, state: mappedState });
+
+    } catch (err) {
+      logger.error({
+        message: "Failed during post-ACK processing for /status",
+        error: err.message,
+        stack: err.stack,
+        transactionId,
+        messageId,
       });
     }
-  
-      const ondcRequest = req.body;
-      console.log(
-        "\n\n\n request body ",
-        ondcRequest,
-        "-------------------------"
-      );
-      await axios.post(
-        `${process.env.ADAPTOR_SITE}/on_select`,
-        ondcRequest
-      );
-      
-    } catch (error) {
-      console.error(error);
-      res
-        .status(500)
-        .json({ error: "An error occurred while processing the request" });
-    }
-}
+  });
+};
+
+export default statusHandler;

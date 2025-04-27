@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ONDC Update Schema",
+    "type": "object",
+    "properties": {
+      "context": {
+        "type": "object",
+        "properties": {
+          "domain": { "type": "string" },
+          "action": { "type": "string", "const": "update" },
+          "core_version": { "type": "string" },
+          "bap_id": { "type": "string" },
+          "bap_uri": { "type": "string" },
+          "transaction_id": { "type": "string" },
+          "message_id": { "type": "string" },
+          "timestamp": { "type": "string" }
+        },
+        "required": ["domain", "action", "core_version", "bap_id", "bap_uri", "transaction_id", "message_id", "timestamp"]
+      },
+      "message": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "state": { "type": "string" },
+              "provider": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" }
+                },
+                "required": ["id"]
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "quantity": {
+                      "type": "object",
+                      "properties": {
+                        "count": { "type": "integer" }
+                      },
+                      "required": ["count"]
+                    }
+                  },
+                  "required": ["id", "quantity"]
+                }
+              }
+            },
+            "required": ["id", "state", "provider", "items"]
+          }
+        },
+        "required": ["order"]
+      }
+    },
+    "required": ["context", "message"]
+  }
+  

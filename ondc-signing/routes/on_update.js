@@ -1,17 +1,18 @@
-const express = require("express");
-const onUpdateMiddleware = require("../middleware/onUpdateMiddleware");
-const logger = require("../utils/logger");
+// File: routes/on_update.js
 
-const router = express.Router();
+import express from 'express';
+import onUpdateMiddleware from '../middlewares/onUpdateMiddleware.js';
+import logger from '../utils/logger.js';
+
+const onUpdateRouter = express.Router();
 
 // POST /on_update
-router.post("/", onUpdateMiddleware, async (req, res) => {
+onUpdateRouter.post("/", onUpdateMiddleware, async (req, res) => {
     const transactionId = req.body?.context?.transaction_id;
     const messageId = req.body?.context?.message_id;
     const snpId = req.verified_snp_id;
 
     try {
-        // Example: Log the payload and SNP identity
         logger.info({
             message: "Processing /on_update payload",
             snpId,
@@ -19,9 +20,6 @@ router.post("/", onUpdateMiddleware, async (req, res) => {
             messageId,
             payload: req.body,
         });
-
-        // TODO: Implement your domain-specific business logic here.
-        // This could include updating order status, notifying downstream systems, etc.
 
         res.status(200).json({
             message: "on_update processed successfully",
@@ -40,4 +38,4 @@ router.post("/", onUpdateMiddleware, async (req, res) => {
     }
 });
 
-module.exports = router;
+export default onUpdateRouter;

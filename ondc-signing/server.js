@@ -7,6 +7,8 @@ import multer from "multer";
 import FormData from "form-data";
 import cookieParser from "cookie-parser";
 import bodyParser from "body-parser";
+import morgan from 'morgan';
+import { createServer } from 'http';
 import {
   createKeyPair,
   createAuthorizationHeader,
@@ -15,6 +17,7 @@ import {
 } from "./utils/cryptoUtils.js";
 
 import apiHandler from "./handlers/apihandler.js";  
+import confirmHandler from './handlers/confirmHandler.js';
 import onselectRoutes from "./routes/on_select.js";
 import oninitRoutes from "./routes/on_init.js";
 import onsearchRoutes from "./routes/on_search.js";
@@ -23,23 +26,25 @@ import selectRoutes from "./routes/select.js";
 import initRoutes from "./routes/init.js";
 import onIncrementalSearchRoutes from "./routes/on_incremental_search.js";
 import incrementalSearchRoutes from "./routes/incremental_search.js";
-import { confirmRouter } from './routes/confirm.js';
-import { onConfirmRouter } from './routes/on_confirm.js';
+import  confirmRouter from './routes/confirm.js';
+import onConfirmRouter from './routes/on_confirm.js';
 // import { cancelRouter } from './routes/cancel.js';
 // import { onCancelRouter } from './routes/on_cancel.js';
 import { OrderStatus } from './constants.js';
-import { onUpdateRouter } from './routes/on_update.js';
-import { onCancelRouter } from './routes/on_cancel.js';
-import { updateRouter } from "./routes/update.js";
-import { cancelRouter } from "./routes/cancel.js";
+import onUpdateRouter from './routes/on_update.js';
+import onCancelRouter from './routes/on_cancel.js';
+import updateRouter from "./routes/update.js";
+import cancelrouter from "./routes/cancel.js";
+import statusRouter from "./routes/status.js";
+import onStatusRouter from "./routes/onStatusRoute.js";
 
-import {
-  addBapOrder,
-  getBapOrder,
-  resetBapOrder,       
-  bapOrders
-} from './services/on_confirm_service.js';
 
+/*
+import cancelRouter from './routes/cancelRoute.js';
+import onCancelRouter from './routes/onCancelRoute.js';
+import statusRouter from './routes/statusRoute.js';
+import onStatusRouter from './routes/onStatusRoute.js';
+*/
 dotenv.config();
 
 
@@ -51,13 +56,16 @@ const stagingDetails = {
 };
 
 
-//const app = express();
+const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
+app.use(multer().none()); // No file uploads for APIs
+app.use(morgan('dev'));
+
 
 const upload = multer();
 app.use(upload.any());
@@ -87,7 +95,35 @@ app.use("/api", confirmRouter);
 app.use("/api", onConfirmRouter);
 app.use("/api", onUpdateRouter);
 app.use("/api", onCancelRouter);
+app.use("/api", statusRouter);
+app.use("/api", onStatusRouter);
 
+
+
+// --- Base Check ---
+app.get('/', (req, res) => {
+  res.status(200).send('ONDC OpenCart Integration Server Running ');
+});
+
+
+// --- 404 Handler ---
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// --- Error Handler ---
+app.use((err, req, res, next) => {
+  console.error('Unhandled Server Error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// --- Server Listen ---
+const PORT = process.env.PORT || 8000;
+const httpServer = createServer(app);
+
+httpServer.listen(PORT, () => {
+  console.log(`\u2728 ONDC server listening on http://localhost:${PORT}`);
+});
 
 //OPENCART LOGIN
 app.post("/login", async (req, res) => {
@@ -386,15 +422,16 @@ app.post("/ondc/cart", async (req, res) => {
     res.status(500).json({ error: "An error occurred" });
   }
 });
+
+/*
 //confirm starts here
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const morgan = require('morgan');
-const confirmHandler = require('./handlers/confirm'); // adjust the path as needed
+//const express = require('express');
+//const bodyParser = require('body-parser');
+//const morgan = require('morgan');
 
 //const app = express();
-//const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(morgan('dev')); // Logs HTTP requests
@@ -402,7 +439,7 @@ app.use(bodyParser.json({ limit: '10mb' })); // Parse JSON body
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Confirm API Route
-app.post('/confirm', confirmHandler);
+app.post('/confirmHandler', confirmHandler);
 
 // Health check route
 app.get('/', (req, res) => {
@@ -419,11 +456,11 @@ app.listen(PORT, () => {
 //on_confirm starts here 
 
 
-const express = require('express');
-const onConfirmRoute = require('./routes/onConfirmRoute');
+//const express = require('express');
+//const onConfirmRoute = require('./routes/onConfirmRoute');
 
 app.use(express.json());
-app.use('/ondc', onConfirmRoute); // Final URL: POST /ondc/on_confirm
+app.use('/ondc', onConfirmRouter); // Final URL: POST /ondc/on_confirm
 
 module.exports = app;
 
@@ -432,9 +469,6 @@ module.exports = app;
 //on_confirm ends here 
 
 //update starts here
-
-const express = require("express");
-const app = express();
 
 const updateRoute = require("./routes/update");
 
@@ -451,8 +485,7 @@ app.listen(PORT, () => {
 
 //on_update starts here
 
-const express = require("express");
-const onUpdateRouter = require("./routes/onUpdateRouter");
+//const onUpdateRouter = require("./routes/onUpdateRouter");
 
 app.use(express.json({
     verify: (req, res, buf) => {
@@ -559,6 +592,8 @@ app.use("/ondc", statusRoute);
 //  }
 // });
 //on_cancel ends here
+
+*/
 import { signRequest } from "./auth/signatureGenerator.js";
 //ONDC ENDPOINTS
 app.get("/generate-keys", async (req, res) => {
@@ -743,7 +778,7 @@ app.use((err, req, res, next) => {
         }
     });
 });
-const PORT = process.env.PORT || 3000;
+//const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 // app.listen(PORT, () => {
 //   console.log(`Server running on port ${PORT}`)

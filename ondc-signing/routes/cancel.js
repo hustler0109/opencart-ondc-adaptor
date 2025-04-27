@@ -1,11 +1,9 @@
-const express = require('express');
+import express from "express";
+const cancelrouter = express.Router();
 
-const cancelMiddleware = require('../middleware/cancelMiddleware.js');
-const handleCancel = require('../handlers/cancelHandler.js');
+import { processCancelRequest } from "../middlewares/cancelMiddleware.js";
+import { handleCancel } from "../handlers/cancelHandler.js";
 
-const router = express.Router();
+cancelrouter.post('/cancel', processCancelRequest, handleCancel);
 
-router.post('/cancel', cancelMiddleware, handleCancel);
-
-// Corrected: Export router directly
-module.exports = router;
+export default cancelrouter;

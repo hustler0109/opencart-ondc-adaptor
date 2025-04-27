@@ -1,10 +1,10 @@
-const express = require("express");
-const router = express.Router();
+import express from 'express';
+const updateRouter = express.Router(); // correctly named
 
-const updateMiddleware = require("../middleware/updateMiddleware");
-const updateHandler = require("../handlers/updateHandler");
+import updateMiddleware from '../middlewares/updateMiddleware.js';
+import updateHandler from '../handlers/updateHandler.js';
 
 // POST /update route
-router.post("/update", updateMiddleware, updateHandler);
+updateRouter.post("/update", updateMiddleware, updateHandler); // use updateRouter, not router
 
-module.exports = router;
+export default updateRouter; // Correct for ESM

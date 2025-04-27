@@ -1,7 +1,7 @@
-const logger = require("../utils/logger");
-const verifyHeader = require("../utils/verifyHeader");
-const validateSchema = require("../utils/schemaValidator");
-const updateSchema = require("../utils/schemas/updateSchema.json"); // Update with correct relative path
+import logger from '../utils/logger.js';
+import verifyHeader from '../utils/verifyHeader.js';
+import { validateSchema } from '../utils/schemaValidator.js';
+import updateSchema from '../utils/schemas/updateSchema.json' assert { type: "json" }; // Update with correct relative path
 
 const updateMiddleware = async (req, res, next) => {
   try {
@@ -13,7 +13,7 @@ const updateMiddleware = async (req, res, next) => {
     req.verified_bpp_id = bppId;
 
     // 2. Validate the body schema
-    const schemaValidationResult = validateSchema(req.body, updateSchema);
+    const schemaValidationResult = await validateSchema(req.body, updateSchema);
 
     if (!schemaValidationResult.valid) {
       logger.warn({
@@ -49,4 +49,4 @@ const updateMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = updateMiddleware;
+export default updateMiddleware;

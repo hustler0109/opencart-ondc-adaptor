@@ -1,15 +1,15 @@
 // middlewares/confirmMiddleware.js
-const Ajv = require('ajv');
-const addFormats = require('ajv-formats');
-const logger = require('../utils/logger');
-const {
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import logger from '../utils/logger.js';
+import {
   parseAuthorizationHeader,
   validateTimestamps,
   parseKeyId,
-  lookupRegistryPublicKey,
   verifySignature,
   createNackResponse,
-} = require('../utils/ondcUtils');
+} from '../utils/ondcUtils.js';
+import { lookupPublicKeyByUkId } from '../utils/lookupPublicKeyByUkId.js'; // Importing the new function
 
 const confirmSchema = {
   type: 'object',
@@ -97,13 +97,13 @@ const confirmMiddleware = async (req, res, next) => {
     }
 
     // Step 4: Lookup public key from registry
-    const publicKey = await lookupRegistryPublicKey(subscriberId, uniqueKeyId);
+    const publicKey = await lookupPublicKeyByUkId(uniqueKeyId); // Using the imported function
     if (!publicKey) {
       return res.status(401).json(
         createNackResponse({
           type: 'PROTOCOL-ERROR',
           code: '40105',
-          message: 'Public key not found for given subscriber ID',
+          message: 'Public key not found for given key ID', // Updated message
         })
       );
     }
@@ -138,4 +138,4 @@ const confirmMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = confirmMiddleware;
+export default confirmMiddleware;

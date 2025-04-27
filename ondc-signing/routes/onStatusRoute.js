@@ -1,9 +1,12 @@
-const express = require("express");
-const router = express.Router();
-const { processOnStatusRequest } = require("../middleware/onStatusMiddleware");
-const onStatusHandler = require("../handlers/onStatusHandler");
+// /routes/onStatusRouter.js
+
+import express from "express";
+import { processOnStatusRequest } from "../middlewares/onStatusMiddleware.js";
+import onStatusHandler from "../handlers/onStatusHandler.js";
+
+const onStatusRouter = express.Router();
 
 // Route for ONDC /on_status (BPP → BAP)
-router.post("/on_status", processOnStatusRequest, onStatusHandler);
+onStatusRouter.post("/on_status", processOnStatusRequest, onStatusHandler);
 
-module.exports = router;
+export default onStatusRouter;

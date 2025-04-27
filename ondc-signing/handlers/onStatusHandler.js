@@ -1,7 +1,9 @@
-const _ = require("lodash");
-const logger = require("../utils/logger");
-const { sendAck } = require("../utils/sendResponse");
-const { getValue, setValue } = require("../shared/cache");
+// /handlers/onStatusHandler.js
+
+import _ from "lodash";
+import logger from "../utils/logger.js";
+import { sendAck } from "../utils/sendResponse.js";
+import { getValue, setValue } from "../shared/cache.js";
 
 /**
  * Handles incoming /on_status from BPP to BAP.
@@ -15,10 +17,8 @@ const onStatusHandler = async (req, res) => {
   const orderState = _.get(body, "message.order.state");
   const fulfillments = _.get(body, "message.order.fulfillments");
 
-  // Respond immediately with ACK
   const ackResponse = sendAck();
 
-  // Idempotency check
   const cacheKey = `on_status_ack:${transactionId}:${messageId}`;
   try {
     const cachedAck = await getValue(cacheKey);
@@ -32,7 +32,6 @@ const onStatusHandler = async (req, res) => {
 
   res.status(200).json(ackResponse);
 
-  // After ACK, process the status update internally
   setImmediate(async () => {
     try {
       logger.info({
@@ -44,10 +43,9 @@ const onStatusHandler = async (req, res) => {
         fulfillments,
       });
 
-      // 🔁 TODO: Save order status to your database
+      // 🔁 TODO: Save order status to your database here if needed
       // await updateOrderStatusInDb(orderId, orderState, fulfillments);
 
-      // Cache ACK to avoid reprocessing
       try {
         await setValue(cacheKey, ackResponse, { ttl: 300 });
         logger.info({ message: "ACK cached successfully for /on_status", transactionId, messageId });
@@ -66,4 +64,4 @@ const onStatusHandler = async (req, res) => {
   });
 };
 
-module.exports = onStatusHandler;
+export default onStatusHandler;

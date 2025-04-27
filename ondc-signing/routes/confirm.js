@@ -1,11 +1,12 @@
-// routes/confirmRoute.js
-const express = require('express');
-const router = express.Router();
-const confirmMiddleware = require('../middlewares/confirmMiddleware');
-const { handleConfirm } = require('../handlers/confirmHandler');
-const logger = require('../utils/logger');
+// routes/confirm.js
+import express from 'express';
+import confirmMiddleware from '../middlewares/confirmMiddleware.js'; // Assuming it's also ESM
+import confirmHandler  from '../handlers/confirmHandler.js'; // Assuming it's also ESM
+import logger from '../utils/logger.js'; // Assuming it's also ESM
 
-router.post('/confirm', confirmMiddleware, async (req, res) => {
+const confirmRouter = express.Router();
+
+confirmRouter.post('/confirm', confirmMiddleware, async (req, res) => {
   try {
     const transactionId = req.body.context?.transaction_id;
     const bapId = req.verified_bap_id;
@@ -33,4 +34,4 @@ router.post('/confirm', confirmMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default confirmRouter;

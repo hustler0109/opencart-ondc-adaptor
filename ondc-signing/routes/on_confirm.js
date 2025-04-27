@@ -1,10 +1,10 @@
-const express = require('express');
-const router = express.Router();
+import express from 'express';
+const onConfirmRouter = express.Router();
 
-const onConfirmHandler = require('../handlers/onConfirmHandler');
-const authenticateSnpRequest = require('../middleware/authenticateSnpRequest'); // Signature verification middleware
-const validateOnConfirmSchema = require('../middleware/onConfirmMiddleware');   // JSON schema + semantic validator
+import onConfirmHandler from '../handlers/onconfirmHandler.js';
+import authenticateSnpRequest, { validateOnConfirmSchema } from '../middlewares/onconfirmMiddleware.js'; // Importing both
 
-router.post('/on_confirm', authenticateSnpRequest, validateOnConfirmSchema, onConfirmHandler);
+// Corrected line
+onConfirmRouter.post('/on_confirm', authenticateSnpRequest, validateOnConfirmSchema, onConfirmHandler);
 
-module.exports = router;
+export default onConfirmRouter;

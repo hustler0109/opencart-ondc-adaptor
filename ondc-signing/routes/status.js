@@ -1,9 +1,11 @@
-const express = require("express");
-const router = express.Router();
+// /routes/statusRouter.js
 
-const { processStatusRequest } = require("../middleware/statusMiddleware"); // Middleware: schema + signature validation
-const statusHandler = require("../handlers/statusHandler"); // Main business logic for /status
+import express from "express";
+import { processStatusRequest } from "../middlewares/statusMiddleware.js";
+import statusHandler from "../handlers/statusHandler.js";
 
-router.post("/status", processStatusRequest, statusHandler);
+const statusRouter = express.Router();
 
-module.exports = router;
+statusRouter.post("/status", processStatusRequest, statusHandler);
+
+export default statusRouter;

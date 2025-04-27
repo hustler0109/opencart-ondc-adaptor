@@ -1,14 +1,17 @@
-const Ajv = require("ajv");
-const addFormats = require("ajv-formats");
-const logger = require("../utils/logger");
-const {
+// File: middleware/onUpdateMiddleware.js
+
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import logger from '../utils/logger.js';
+import {
     parseAuthorizationHeader,
     validateTimestamps,
     parseKeyId,
-    lookupRegistryPublicKey,
     verifySignature,
     createNackResponse,
-} = require("../utils/ondcUtils");
+} from '../utils/ondcUtils.js';
+import lookupPublicKey from '../utils/registryLookup.js';
+import onUpdateSchema from '../utils/schemas/on_update_schema.json' assert { type: "json" };
 
 // --- Schema Validation Setup ---
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -16,11 +19,13 @@ addFormats(ajv);
 
 let validateOnUpdateSchema;
 try {
-    const onUpdateSchema = require("../schema/on_update_schema.json");
     validateOnUpdateSchema = ajv.compile(onUpdateSchema);
     logger.info({ message: "ONDC /on_update schema compiled successfully." });
 } catch (err) {
-    logger.error({ message: "FATAL: Failed to load or compile ONDC /on_update JSON schema.", error: err.message });
+    logger.error({
+        message: "FATAL: Failed to load or compile ONDC /on_update JSON schema.",
+        error: err.message
+    });
     validateOnUpdateSchema = null;
 }
 
@@ -44,7 +49,7 @@ const onUpdateMiddleware = async (req, res, next) => {
             return res.status(500).json(createNackResponse({
                 type: "CORE_ERROR",
                 code: "50001",
-                message: "Schema validation is not available."
+                message: "Schema validation is not available.",
             }));
         }
 
@@ -55,12 +60,12 @@ const onUpdateMiddleware = async (req, res, next) => {
                 message: "Schema validation failed for /on_update.",
                 errors: validateOnUpdateSchema.errors,
                 transactionId,
-                messageId
+                messageId,
             });
             return res.status(400).json(createNackResponse({
                 type: "DOMAIN_ERROR",
                 code: "40001",
-                message: `Schema validation failed: ${error?.instancePath || 'body'} ${error?.message || ''}`
+                message: `Schema validation failed: ${error?.instancePath || 'body'} ${error?.message || ''}`,
             }));
         }
         logger.debug({ message: "Schema validation passed for /on_update", transactionId, messageId });
@@ -114,7 +119,7 @@ const onUpdateMiddleware = async (req, res, next) => {
 
         logger.debug({ message: "Parsed keyId successfully", snp_id, uniqueKeyId, transactionId, messageId });
 
-        const publicKey = await lookupRegistryPublicKey(snp_id, uniqueKeyId);
+        const publicKey = await lookupPublicKey(snp_id, uniqueKeyId);
         if (!publicKey) {
             logger.warn({ message: "Public key not found for SNP ID in registry", snp_id, uniqueKeyId, transactionId, messageId });
             return res.status(401).json(createNackResponse({
@@ -149,4 +154,4 @@ const onUpdateMiddleware = async (req, res, next) => {
     }
 };
 
-module.exports = onUpdateMiddleware;
+export default onUpdateMiddleware;

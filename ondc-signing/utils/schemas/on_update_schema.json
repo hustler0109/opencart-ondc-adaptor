@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ONDC On Update Schema",
+  "type": "object",
+  "required": ["context", "message"],
+  "properties": {
+    "context": {
+      "type": "object",
+      "required": ["transaction_id", "message_id"],
+      "properties": {
+        "transaction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "domain": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": true
+    },
+    "message": {
+      "type": "object",
+      "description": "Message payload for the /on_update API",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
