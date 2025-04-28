@@ -3,7 +3,7 @@
 import _ from "lodash";
 import logger from "../utils/logger.js";
 import { sendAck } from "../utils/sendResponse.js";
-import { getValue, setValue } from "../shared/cache.js";
+import { getValue, setValue } from "../utils/cache.js";
 
 /**
  * Handles incoming /on_status from BPP to BAP.

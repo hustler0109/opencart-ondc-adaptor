@@ -4,8 +4,8 @@ import axios from "axios";
 import _ from "lodash";
 import logger from "../utils/logger.js";
 import { sendAck } from "../utils/sendResponse.js";
-import { getValue, setValue } from "../shared/cache.js";
-import { getCallbackUri } from "../utils/registryLookup.js";
+import { getValue, setValue } from "../utils/cache.js";
+import { lookupRegistryCallbackUri } from "../utils/registryLookup.js";
 import { signPayload } from "../utils/ondcUtils.js";
 
 // --- Configuration ---
